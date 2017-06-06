@@ -35,7 +35,7 @@ var (
 		0xFF: "Engineering Sample",
 		0x0D: "Si7013",
 		0x14: "Si7020",
-		0x15: "si7021",
+		0x15: "Si7021",
 	}
 )
 
@@ -73,7 +73,7 @@ func New(bus embd.I2CBus) *si70xx {
 }
 
 // SerialNumber returns the sensor's hardware serial number
-func (d *si70xx) SerialNumber() (string, error) {
+func (d *Si70xx) SerialNumber() (string, error) {
 	if err := d.setup(); err != nil {
 		return "", err
 	}
@@ -81,7 +81,7 @@ func (d *si70xx) SerialNumber() (string, error) {
 }
 
 // FirmwareVersion returns the sensor's firmware version
-func (d *si70xx) FirmwareVersion() (string, error) {
+func (d *Si70xx) FirmwareVersion() (string, error) {
 	if err := d.setup(); err != nil {
 		return "", err
 	}
@@ -97,7 +97,7 @@ func (d *si70xx) ModelName() (string, error) {
 }
 
 // Humdity performs a Relative Humidity reading
-func (d *si70xx) Humidity() (float64, error) {
+func (d *Si70xx) Humidity() (float64, error) {
 	if err := d.setup(); err != nil {
 		return -1, err
 	}
@@ -138,7 +138,7 @@ func (d *si70xx) Temperature() (float64, error) {
 
 // LastTemperature returns a temperature value that was measured during the last Humidity reading,
 // without waiting for the sensor to perform a new reading.
-func (d *si70xx) LastTemperature() (float64, error) {
+func (d *Si70xx) LastTemperature() (float64, error) {
 	if err := d.setup(); err != nil {
 		return -1, err
 	}
@@ -157,13 +157,13 @@ func (d *si70xx) LastTemperature() (float64, error) {
 }
 
 // Readings is a channel that will contain sensor readings after calling Start()
-func (d *si70xx) Readings() <-chan *TemperatureAndHumidity {
+func (d *Si70xx) Readings() <-chan *TemperatureAndHumidity {
 	return d.readings
 }
 
 // Start produces a stream of humidity and temperature readings
 // in the Readings() channel
-func (d *si70xx) Start(interval time.Duration) error {
+func (d *Si70xx) Start(interval time.Duration) error {
 	if err := d.setup(); err != nil {
 		return err
 	}
@@ -208,7 +208,7 @@ func (d *si70xx) Start(interval time.Duration) error {
 
 // Close stops any period reads in progress.  Call this to stop the readings that
 // Start() begins
-func (d *si70xx) Close() error {
+func (d *Si70xx) Close() error {
 	if err := d.setup(); err != nil {
 		return err
 	}
@@ -226,7 +226,7 @@ func calcTemperature(reading []byte) float64 {
 	return float64(rawValue)*175.72/65536.0 - 46.85
 }
 
-func (d *si70xx) setup() error {
+func (d *Si70xx) setup() error {
 	d.mu.RLock()
 	if d.initialized {
 		d.mu.RUnlock()
@@ -290,7 +290,7 @@ func (d *si70xx) setup() error {
 	return nil
 }
 
-func (d *si70xx) validate() error {
+func (d *Si70xx) validate() error {
 	if d.Bus == nil {
 		return errors.New("si70xx: no i2c bus")
 	}
