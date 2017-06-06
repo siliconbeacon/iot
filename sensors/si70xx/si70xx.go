@@ -117,7 +117,7 @@ func (d *Si70xx) Humidity() (float64, error) {
 }
 
 // Temperature performs a Temperature reading
-func (d *si70xx) Temperature() (float64, error) {
+func (d *Si70xx) Temperature() (float64, error) {
 	if err := d.setup(); err != nil {
 		return -1, err
 	}
