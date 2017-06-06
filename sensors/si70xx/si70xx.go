@@ -65,8 +65,8 @@ type Si70xx struct {
 }
 
 // New creates a new si70xx sensor.
-func New(bus embd.I2CBus) *si70xx {
-	return &si70xx{
+func New(bus embd.I2CBus) *Si70xx {
+	return &Si70xx{
 		Bus:     bus,
 		address: si70xxAddrDefault,
 	}
@@ -89,7 +89,7 @@ func (d *Si70xx) FirmwareVersion() (string, error) {
 }
 
 // ModelName returns the model name of the sensor (Si7013, Si7020, or Si7021)
-func (d *si70xx) ModelName() (string, error) {
+func (d *Si70xx) ModelName() (string, error) {
 	if err := d.setup(); err != nil {
 		return "", err
 	}
