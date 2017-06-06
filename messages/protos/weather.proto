@@ -1,0 +1,18 @@
+syntax = "proto3";
+package com.siliconbeacon.iot.messages;
+option go_package = "github.com/jwittevrongel/sbcom-iot-messages";
+option csharp_namespace = "SiliconBeacon.Iot.Messages";
+
+import "google/protobuf/timestamp.proto";
+
+message WeatherReadings {
+  string device = 1;
+  google.protobuf.Timestamp base_time = 2;
+  repeated WeatherReading readings = 3;
+
+  message WeatherReading {
+    uint32 relative_time_us = 1;
+    double temperature_degrees_c = 2;
+    double relative_humidity_percentage = 3;
+  }
+}
