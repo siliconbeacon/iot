@@ -1,6 +1,6 @@
 syntax = "proto3";
 package com.siliconbeacon.iot.messages;
-option go_package = "github.com/jwittevrongel/sbcom-iot-messages";
+option go_package = "messages";
 option csharp_namespace = "SiliconBeacon.Iot.Messages";
 
 import "google/protobuf/timestamp.proto";
