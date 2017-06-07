@@ -18,7 +18,7 @@ module.exports = {
   },
   secure: {
     port: 8883,
-    keyPath: __dirname + '/tls_key.pem',
-    certPath: __dirname + '/tls_cert.pem'
+    keyPath: __dirname + '/iot.siliconbeacon.com.key.pem',
+    certPath: __dirname + '/iot.siliconbeacon.com.cert.pem'
   }
 };
