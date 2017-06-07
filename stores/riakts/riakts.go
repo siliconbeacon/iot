@@ -16,14 +16,14 @@ func main() {
 	signal.Notify(osExit, syscall.SIGINT, syscall.SIGTERM)
 	fmt.Println("Connecting to MQTT Server...")
 	mqClient := mqtt.NewTLSClient(fmt.Sprintf("store.riakts.%v", os.Getpid()), "ssl://localhost:8883/")
-	listener := listener.New(mqClient)
-	if err := listener.Start(mqtt.WeatherTopicPattern); err != nil {
+	l := listener.New(mqClient)
+	if err := l.Start(mqtt.WeatherTopicPattern); err != nil {
 		fmt.Println(err)
 		return
 	}
 	fmt.Println("Running...  Press Ctrl-C to exit.")
 	<-osExit
 	fmt.Println("Exiting.")
-	listener.Stop()
+	l.Stop()
 	close(shutdown)
 }
