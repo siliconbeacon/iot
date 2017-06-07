@@ -1,14 +1,14 @@
-package listener
+package weather
 
 import (
 	"time"
 )
 
-type WeatherReading struct {
+type Reading struct {
 	Station                    string
 	Timestamp                  time.Time
 	TemperatureDegreesCelsius  float64
 	RelativeHumidityPercentage float64
 }
 
-type WeatherReadings []*WeatherReading
+type Readings []*Reading
