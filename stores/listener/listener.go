@@ -13,13 +13,13 @@ type Listener struct {
 	weather chan weather.Readings
 }
 
-func New(client MQTT.Client) {
+func New(client MQTT.Client) *Listener {
 	return &Listener{
 		client: client,
 	}
 }
 
-func (l *Listener) Weather() <-chan WeatherReadings {
+func (l *Listener) Weather() <-chan weather.Readings {
 	return l.weather
 }
 
@@ -31,7 +31,7 @@ func (l *Listener) Start(topic string) error {
 	if token := l.client.Subscribe(topic, 0, weatherListener); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
-	l.weather = make(chan WeatherReadings, 5)
+	l.weather = make(chan weather.Readings, 5)
 	go func() {
 		for {
 			select {
