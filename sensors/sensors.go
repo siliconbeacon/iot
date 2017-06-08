@@ -1,77 +1,38 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-import "os"
-import "os/signal"
-import "syscall"
-import "time"
+	"github.com/kidoman/embd"
+	_ "github.com/kidoman/embd/host/rpi"
 
-import "github.com/kidoman/embd"
-import _ "github.com/kidoman/embd/host/rpi"
-
-import "github.com/siliconbeacon/iot/sensors/si70xx"
-
-const (
-	rpiI2cBus = 1
+	"github.com/siliconbeacon/iot/mqtt"
+	"github.com/siliconbeacon/iot/sensors/publish"
 )
 
-func runTemperatureSensor(i2cbus embd.I2CBus, shutdown chan bool) {
-	sensor := si70xx.New(i2cbus)
-	var (
-		err      error
-		serial   string
-		model    string
-		firmware string
-	)
-	if serial, err = sensor.SerialNumber(); err != nil {
-		fmt.Println("Unable to initialize Si70xx sensor.")
-		return
-	}
-	if model, err = sensor.ModelName(); err != nil {
-		fmt.Println("Unable to initialize Si70xx sensor.")
-		return
-	}
-	if firmware, err = sensor.FirmwareVersion(); err != nil {
-		fmt.Println("Unable to initialize Si70xx sensor.")
-		return
-	}
-	fmt.Println(model, "found. Serial:", serial, "running firmware version", firmware)
-
-	// let's sample at 5Hz
-	if err = sensor.Start(200 * time.Millisecond); err != nil {
-		fmt.Println("Unable to commence sensor reads from Si70xx.")
-		return
-	}
-	readings := sensor.Readings()
-	var buffer [10]*si70xx.TemperatureAndHumidity
-	sampleCount := 0
-	for {
-		select {
-		case reading := <-readings:
-			buffer[sampleCount] = reading
-			sampleCount++
-			if sampleCount == 10 {
-				fmt.Println("Got 10.")
-				// do mqtt stuff with buffer(0:sampleCount)
-				for i := range buffer {
-					fmt.Println(buffer[i].TemperatureDegreesCelsius)
-					buffer[i] = nil
-				}
-				sampleCount = 0
-			}
-		case <-shutdown:
-			sensor.Close()
-			// do mqtt stuff with buffer(0:sampleCount)
-			return
-		}
-	}
-}
+const (
+	rpiI2cBus  = 1
+	deviceName = "sensor.pi3650"
+)
 
 func main() {
 	osExit := make(chan os.Signal, 1)
 	shutdown := make(chan bool, 1)
 	signal.Notify(osExit, syscall.SIGINT, syscall.SIGTERM)
+
+	mqClient := mqtt.NewTLSClient(deviceName, "ssl://upsilon:8883")
+	fmt.Println("Connecting to Server...")
+
+	if token := mqClient.Connect(); token.WaitTimeout(5*time.Second) && token.Error() != nil {
+		fmt.Println("Unable to connect to MQTT server.")
+		return
+	}
+
+	defer mqClient.Disconnect(250)
 
 	fmt.Println("Initializing Sensors...")
 	embd.InitI2C()
@@ -79,7 +40,7 @@ func main() {
 	i2cbus := embd.NewI2CBus(rpiI2cBus)
 
 	// start all sensors
-	go runTemperatureSensor(i2cbus, shutdown)
+	go publish.Weather(deviceName, i2cbus, mqClient, shutdown)
 
 	fmt.Println("Running...  Press Ctrl-C to exit.")
 
