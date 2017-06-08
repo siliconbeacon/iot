@@ -87,7 +87,7 @@ func serializeWeather(station string, readings []*si70xx.TemperatureAndHumidity)
 	}
 	for _, reading := range readings {
 		msg.Readings = append(msg.Readings, &messages.WeatherReadings_WeatherReading{
-			RelativeTimeUs:             uint32(reading.Timestamp.Sub(baseTime) / time.Millisecond),
+			RelativeTimeUs:             uint32(reading.Timestamp.Sub(baseTime) / time.Microsecond),
 			TemperatureDegreesC:        reading.TemperatureDegreesCelsius,
 			RelativeHumidityPercentage: reading.RelativeHumidityPercentage,
 		})
