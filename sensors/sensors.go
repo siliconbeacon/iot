@@ -44,7 +44,7 @@ func runTemperatureSensor(i2cbus embd.I2CBus, shutdown chan bool) {
 		return
 	}
 	readings := sensor.Readings()
-	var buffer [10]*si7021.TemperatureAndHumidity
+	var buffer [10]*si70xx.TemperatureAndHumidity
 	sampleCount := 0
 	for {
 		select {
