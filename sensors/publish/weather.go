@@ -38,21 +38,21 @@ func Weather(station string, i2cbus embd.I2CBus, mq MQTT.Client, shutdown chan b
 	}
 	fmt.Println(model, "found. Serial:", serial, "running firmware version", firmware)
 
-	// let's sample at 5Hz
-	if err = sensor.Start(200 * time.Millisecond); err != nil {
+	// let's sample at 10Hz
+	if err = sensor.Start(100 * time.Millisecond); err != nil {
 		fmt.Println("Unable to commence sensor reads from Si70xx.")
 		return
 	}
 	readings := sensor.Readings()
-	var buffer [10]*si70xx.TemperatureAndHumidity
+	var buffer [20]*si70xx.TemperatureAndHumidity
 	sampleCount := 0
 	for {
 		select {
 		case reading := <-readings:
 			buffer[sampleCount] = reading
 			sampleCount++
-			if sampleCount == 10 {
-				weatherBatch(station, mq, buffer[0:10])
+			if sampleCount == 20 {
+				weatherBatch(station, mq, buffer[0:20])
 				sampleCount = 0
 			}
 		case <-shutdown:
