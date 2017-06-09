@@ -1,9 +1,12 @@
 package listener
 
 import (
-	"fmt"
+	"time"
 
 	MQTT "github.com/eclipse/paho.mqtt.golang"
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/siliconbeacon/iot/messages"
 	"github.com/siliconbeacon/iot/stores/listener/weather"
 )
 
@@ -24,13 +27,20 @@ func (l *Listener) Weather() <-chan weather.Readings {
 }
 
 func (l *Listener) Start(topic string) error {
-
 	if token := l.client.Connect(); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
-	if token := l.client.Subscribe(topic, 0, weatherListener); token.Wait() && token.Error() != nil {
+
+	var subscriber MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Message) {
+		readings := deserializeMessage(msg.Payload())
+		if readings != nil {
+			l.weather <- readings
+		}
+	}
+	if token := l.client.Subscribe(topic, 0, subscriber); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
+
 	l.weather = make(chan weather.Readings, 5)
 	go func() {
 		for {
@@ -55,6 +65,22 @@ func (l *Listener) Stop() {
 	}
 }
 
-func weatherListener(client MQTT.Client, msg MQTT.Message) {
-	fmt.Printf("%s\n", msg.Payload())
+func deserializeMessage(body []byte) weather.Readings {
+	pb := &messages.WeatherReadings{}
+	if err := proto.Unmarshal(body, pb); err != nil {
+		return nil
+	}
+	var readings weather.Readings
+
+	baseTime, _ := ptypes.Timestamp(pb.BaseTime)
+	for _, reading := range pb.Readings {
+		delta := time.Duration(reading.RelativeTimeUs) * time.Microsecond
+		readings = append(readings, &weather.Reading{
+			Station:                    pb.Device,
+			Timestamp:                  baseTime.Add(delta),
+			TemperatureDegreesCelsius:  reading.TemperatureDegreesC,
+			RelativeHumidityPercentage: reading.RelativeHumidityPercentage,
+		})
+	}
+	return readings
 }

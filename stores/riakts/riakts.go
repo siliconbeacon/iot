@@ -8,6 +8,7 @@ import (
 
 	"github.com/siliconbeacon/iot/mqtt"
 	"github.com/siliconbeacon/iot/stores/listener"
+	"github.com/siliconbeacon/iot/stores/listener/weather"
 )
 
 func main() {
@@ -21,9 +22,21 @@ func main() {
 		fmt.Println(err)
 		return
 	}
+	go writeToRiak(l.Weather(), shutdown)
 	fmt.Println("Running...  Press Ctrl-C to exit.")
 	<-osExit
 	fmt.Println("Exiting.")
 	l.Stop()
 	close(shutdown)
+}
+
+func writeToRiak(readings <-chan weather.Readings, shutdown chan bool) {
+	for {
+		select {
+		case reading := <-readings:
+			fmt.Println(reading[0].Station, reading[0].TemperatureDegreesCelsius)
+		case <-shutdown:
+			return
+		}
+	}
 }
