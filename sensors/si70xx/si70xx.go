@@ -72,6 +72,14 @@ func New(bus embd.I2CBus) *Si70xx {
 	}
 }
 
+// IsPresent returns true if it looks like we were able to see the sensor
+func (d *Si70xx) IsPresent() bool {
+	if err := d.setup(); err != nil {
+		return false
+	}
+	return true
+}
+
 // SerialNumber returns the sensor's hardware serial number
 func (d *Si70xx) SerialNumber() (string, error) {
 	if err := d.setup(); err != nil {

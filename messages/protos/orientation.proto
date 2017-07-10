@@ -1,0 +1,41 @@
+syntax = "proto3";
+package com.siliconbeacon.iot.messages;
+option go_package = "messages";
+option csharp_namespace = "SiliconBeacon.Iot.Messages";
+
+import "google/protobuf/timestamp.proto";
+
+message OrientationReadings {
+  string device = 1;
+  google.protobuf.Timestamp base_time = 2;
+  repeated OrientationReading readings = 3;
+}
+
+message OrientationReading {
+    uint32 relative_time_us = 1;
+	GyroscopeReading gyroscope = 2;
+	MagnetometerReading magnetometer = 3;
+	AccelerometerReading accelerometer = 4;
+	AttitudeHeadingReference ahrs = 5;
+}
+
+// degrees per second
+message GyroscopeReading {
+  double x_dps = 1;
+  double y_dps = 2;
+  double z_dps = 3;
+}
+
+// micro teslas
+message MagnetometerReading {
+  double x_ut = 1; 
+  double y_ut = 2;
+  double z_ut = 3;
+}
+
+// milli earth-gravities
+message AccelerometerReading {
+  double x_mg = 1;
+  double y_mg = 2;
+  double z_mg = 3;
+}

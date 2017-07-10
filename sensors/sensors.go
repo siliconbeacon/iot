@@ -41,6 +41,7 @@ func main() {
 
 	// start all sensors
 	go publish.Weather(deviceName, i2cbus, mqClient, shutdown)
+	go publish.Orientation(deviceName, i2cbus, mqClient, shutdown)
 
 	fmt.Println("Running...  Press Ctrl-C to exit.")
 
