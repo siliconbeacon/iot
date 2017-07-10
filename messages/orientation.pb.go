@@ -6,6 +6,7 @@ Package messages is a generated protocol buffer package.
 
 It is generated from these files:
 	orientation.proto
+	weather.proto
 
 It has these top-level messages:
 	OrientationReadings
@@ -13,6 +14,8 @@ It has these top-level messages:
 	GyroscopeReading
 	MagnetometerReading
 	AccelerometerReading
+	WeatherReadings
+	WeatherReading
 */
 package messages
 
