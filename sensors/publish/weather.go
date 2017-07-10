@@ -92,6 +92,6 @@ func serializeWeather(station string, readings []*si70xx.TemperatureAndHumidity)
 			RelativeHumidityPercentage: reading.RelativeHumidityPercentage,
 		})
 	}
-	fmt.Println(len(msg.Readings))
+	fmt.Print("w")
 	return proto.Marshal(msg)
 }
