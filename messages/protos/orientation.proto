@@ -12,11 +12,11 @@ message OrientationReadings {
 }
 
 message OrientationReading {
-    uint32 relative_time_us = 1;
+  uint32 relative_time_us = 1;
 	GyroscopeReading gyroscope = 2;
 	MagnetometerReading magnetometer = 3;
 	AccelerometerReading accelerometer = 4;
-	AttitudeHeadingReference ahrs = 5;
+	// AttitudeHeadingReference ahrs = 5;
 }
 
 // degrees per second
