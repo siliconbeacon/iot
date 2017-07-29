@@ -18,16 +18,18 @@ import (
 func Orientation(station string, i2cbus embd.I2CBus, mq MQTT.Client, shutdown chan bool) {
 	gyro := fxas21002c.New(i2cbus)
 
+	gyro.Configure(&fxas21002c.Configuration{
+		Range: core.GyroRange500dps,
+		Rate:  core.DataRate200Hz,
+	})
+
 	if present := gyro.IsPresent(); !present {
 		fmt.Println("Unable to initialize FXAS21002C sensor.")
 		return
 	}
 
-	gyroRange := core.GyroRange500dps
-	gyroRate := core.DataRate200Hz
-
-	fmt.Println("FXAS21002C gyroscope found.  Initializing for a range of 500dps, reading at 200Hz.")
-	if err := gyro.Start(gyroRange, gyroRate); err != nil {
+	fmt.Println("FXAS21002C gyroscope found. Initialized for a range of 500dps, reading at 200Hz.  Commencing Sensor Reads.")
+	if err := gyro.Start(); err != nil {
 		fmt.Println("Unable to commence sensor reads from FXAS21002C sensor.")
 		return
 	}

@@ -257,7 +257,6 @@ func (d *Si70xx) setup() error {
 	if reg != si70xxRhtRegisterValue {
 		return fmt.Errorf("si70xx: Unexpected RHT Register Value: %#x", reg)
 	}
-	fmt.Printf("Reg: %#x\n", reg)
 
 	// read firmware version
 	if err := d.Bus.WriteByteToReg(d.address, si70xxCmdFirmwareVersion[0], si70xxCmdFirmwareVersion[1]); err != nil {

@@ -11,6 +11,8 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/kidoman/embd"
+
+	"github.com/siliconbeacon/iot/sensors/core"
 )
 
 const (
@@ -48,91 +50,31 @@ const (
 	fxos8700cqRegisterMCtrl2 = 0x5C
 	fxos8700cqRegisterMCtrl3 = 0x5D
 
-	fxos8700cqCtrlReset0 = 0x00
-	fxos8700cqCtrlReset1 = 0x40
+	fxos8700cqCtrlStandby = 0x00
 )
 
-const (
-	fxas21002cActiveTransitionTime = 60 * time.Millisecond
-)
-
-type fxas21002cDataRate struct {
-	ctrl1        byte
-	bufferSize   int
-	readInterval time.Duration
-}
-
-var (
-	fxas21002cDataRates = map[DataRate]*fxas21002cDataRate{
-		DataRate800Hz:  {ctrl1: 0x02, bufferSize: 800, readInterval: 1250 * time.Microsecond},
-		DataRate400Hz:  {ctrl1: 0x06, bufferSize: 400, readInterval: 2500 * time.Microsecond},
-		DataRate200Hz:  {ctrl1: 0x0A, bufferSize: 200, readInterval: 5 * time.Millisecond},
-		DataRate100Hz:  {ctrl1: 0x0E, bufferSize: 100, readInterval: 10 * time.Millisecond},
-		DataRate50Hz:   {ctrl1: 0x12, bufferSize: 50, readInterval: 20 * time.Millisecond},
-		DataRate25Hz:   {ctrl1: 0x16, bufferSize: 25, readInterval: 40 * time.Millisecond},
-		DataRate12_5Hz: {ctrl1: 0x1A, bufferSize: 13, readInterval: 80 * time.Millisecond},
-	}
-)
-
-type GyroRange int
-
-const (
-	GyroRange250dps  GyroRange = 250
-	GyroRange500dps  GyroRange = 500
-	GyroRange1000dps GyroRange = 1000
-	GyroRange2000dps GyroRange = 2000
-	GyroRange4000dps GyroRange = 4000
-)
-
-type fxas21002cGyroRange struct {
-	ctrl0       byte
-	ctrl3       byte
-	sensitivity float64
-}
-
-var (
-	fxas21002cGyroRanges = map[GyroRange]*fxas21002cGyroRange{
-		250:  {ctrl0: 0x03, ctrl3: 0x00, sensitivity: 0.0078125},
-		500:  {ctrl0: 0x02, ctrl3: 0x00, sensitivity: 0.015625},
-		1000: {ctrl0: 0x01, ctrl3: 0x00, sensitivity: 0.03125},
-		2000: {ctrl0: 0x00, ctrl3: 0x00, sensitivity: 0.0625},
-		4000: {ctrl0: 0x00, ctrl3: 0x01, sensitivity: 0.125},
-	}
-)
-
-// Acceleromter Reading on 3 axes, in std Earth gravities
-type AccelerometerReading struct {
-	Timestamp time.Time
-	Xg        float64
-	Yg        float64
-	Zg        float64
-}
-
-// Magnetometer Reading on 3 axes, in std
-
-type Fxas21002c struct {
+type Fxos8700cq struct {
 	Bus embd.I2CBus
 	// Addr of the sensor.
 	address     byte
-	rangeInfo   *fxas21002cGyroRange
-	rateInfo    *fxas21002cDataRate
 	initialized bool
 	mu          sync.RWMutex
 
-	readings chan *GyroReading
-	closing  chan chan struct{}
+	accelReadings chan *core.AccelReading
+	magReadings   chan *core.MagReading
+	closing       chan chan struct{}
 }
 
 // New creates a new fxas21002c sensor.
-func New(bus embd.I2CBus) *Fxas21002c {
-	return &Fxas21002c{
+func New(bus embd.I2CBus) *Fxos8700cq {
+	return &Fxos8700cq{
 		Bus:     bus,
-		address: fxas21002cAddrDefault,
+		address: fxos8700cqAddrDefault,
 	}
 }
 
 // IsPresent returns true if it looks like we were able to see the sensor
-func (d *Fxas21002c) IsPresent() bool {
+func (d *Fxos8700cq) IsPresent() bool {
 	if err := d.setup(); err != nil {
 		fmt.Println(err)
 		return false
@@ -140,54 +82,24 @@ func (d *Fxas21002c) IsPresent() bool {
 	return true
 }
 
-// Readings is a channel that will contain sensor readings after calling Start()
-func (d *Fxas21002c) Readings() <-chan *GyroReading {
-	return d.readings
+// AccelReadings is a channel that will contain sensor readings after calling Start()
+func (d *Fxos8700cq) AccelReadings() <-chan *core.AccelReading {
+	return d.accelReadings
+}
+
+// MagReadings is a channel that will contain sensor readings after calling Start()
+func (d *Fxos8700cq) MagReadings() <-chan *core.MagReading {
+	return d.magReadings
 }
 
 // Start produces a stream of gyroscope readings in the Readings() channel
-func (d *Fxas21002c) Start(rge GyroRange, rate DataRate) error {
-
-	go func() {
-		// we are in standby mode. Configure Sensor
-		if err := d.Activate(rge, rate); err != nil {
-			glog.Errorf("fxas21002c: %v", err)
-			return
-		}
-
-		// buffer is based on data rate
-		d.readings = make(chan *GyroReading, d.rateInfo.bufferSize)
-		time.Sleep(fxas21002cActiveTransitionTime)
-		ticker := time.NewTicker(d.rateInfo.readInterval)
-		for {
-			select {
-			case <-ticker.C:
-				var (
-					reading *GyroReading
-					err     error
-				)
-				reading, err = d.ReadGyro()
-				if err != nil {
-					glog.Errorf("fxas21002c: %v", err)
-					continue
-				}
-				reading.Timestamp = time.Now().UTC()
-
-				d.readings <- reading
-			case waitc := <-d.closing:
-				waitc <- struct{}{}
-				ticker.Stop()
-				close(d.readings)
-				return
-			}
-		}
-	}()
+func (d *Fxos8700cq) Start(rate core.DataRate) error {
 	return nil
 }
 
 // Close stops any period reads in progress.  Call this to stop the readings that
 // Start() begins
-func (d *Fxas21002c) Close() error {
+func (d *Fxos8700cq) Close() error {
 	if err := d.setup(); err != nil {
 		return err
 	}
@@ -200,7 +112,7 @@ func (d *Fxas21002c) Close() error {
 	return nil
 }
 
-func (d *Fxas21002c) setup() error {
+func (d *Fxos8700cq) setup() error {
 
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -210,70 +122,45 @@ func (d *Fxas21002c) setup() error {
 	}
 
 	// check whoami register first
-	whoami, err := d.Bus.ReadByteFromReg(d.address, fxas21002cRegisterWhoami)
+	whoami, err := d.Bus.ReadByteFromReg(d.address, fxos8700cqRegisterWhoami)
 	if err != nil {
 		return err
 	}
-	if whoami != fxas21002cIdentifier {
-		return fmt.Errorf("fxas21002c whoami check failed.  Expected %#x, got %#x", fxas21002cIdentifier, whoami)
+	if whoami != fxos8700cqIdentifier {
+		return fmt.Errorf("fxos8700cq whoami check failed.  Expected %#x, got %#x", fxos8700cqIdentifier, whoami)
 	}
 
-	// reset sensor, leave in sleep mode
-	err = d.Bus.WriteByteToReg(d.address, fxas21002cRegisterCtrl1, fxas21002cCtrlReset0)
+	// put sensor in standby mode
+	err = d.Bus.WriteByteToReg(d.address, fxos8700cqRegisterCtrl1, fxos8700cqCtrlStandby)
 	if err != nil {
-		return errors.New("Unable to reset fxas21002c")
+		return errors.New("Unable to reset fxos8700cq")
 	}
 
 	return nil
 }
 
-func (d *Fxas21002c) Activate(rge GyroRange, rate DataRate) error {
-	if err := d.setup(); err != nil {
-		return err
-	}
+func (d *Fxos8700cq) Activate() error {
 
-	// grab configuration from tables
-	d.rangeInfo = fxas21002cGyroRanges[rge]
-	d.rateInfo = fxas21002cDataRates[rate]
-
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	if err := d.Bus.WriteByteToReg(d.address, fxas21002cRegisterCtrl0, d.rangeInfo.ctrl0); err != nil {
-		return err
-	}
-	if err := d.Bus.WriteByteToReg(d.address, fxas21002cRegisterCtrl3, d.rangeInfo.ctrl3); err != nil {
-		return err
-	}
-	if err := d.Bus.WriteByteToReg(d.address, fxas21002cRegisterCtrl1, d.rateInfo.ctrl1); err != nil {
-		return err
-	}
-	return nil
 }
 
-func (d *Fxas21002c) ReadGyro() (*GyroReading, error) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+func (d *Fxos8700cq) ReadAccel() (*core.AccelReading, error) {
 
-	var result []byte
-	var err error
-	result, err = d.Bus.ReadBytes(d.address, 7)
-	if err != nil {
-		return nil, err
-	}
-	return &GyroReading{
-		Xdps: float64(int16(binary.BigEndian.Uint16(result[1:3]))) * d.rangeInfo.sensitivity,
-		Ydps: float64(int16(binary.BigEndian.Uint16(result[3:5]))) * d.rangeInfo.sensitivity,
-		Zdps: float64(int16(binary.BigEndian.Uint16(result[5:7]))) * d.rangeInfo.sensitivity,
-	}, nil
 }
 
-func (d *Fxas21002c) validate() error {
+func (d *Fxos8700cq) ReadMag() (*core.MagReading, error) {
+
+}
+
+func (d *Fxos8700cq) ReadAccelAndMag() (*core.AccelReading, *core.MagReading, error) {
+
+}
+
+func (d *Fxos8700cq) validate() error {
 	if d.Bus == nil {
-		return errors.New("fxas21002c: no i2c bus")
+		return errors.New("fxos8700cq: no i2c bus")
 	}
 	if d.address == 0x00 {
-		return fmt.Errorf("fxas21002c: invalid address %#x", d.address)
+		return fmt.Errorf("fxos8700cq: invalid address %#x", d.address)
 	}
 	return nil
 }

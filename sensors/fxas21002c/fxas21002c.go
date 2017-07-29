@@ -32,8 +32,7 @@ const (
 	fxas21002cRegisterCtrl2  = 0x14
 	fxas21002cRegisterCtrl3  = 0x15
 
-	fxas21002cCtrlReset0 = 0x00
-	fxas21002cCtrlReset1 = 0x40
+	fxas21002cCtrlStandby = 0x00
 )
 
 const (
@@ -73,6 +72,13 @@ var (
 	}
 )
 
+type Configuration struct {
+	Range     core.GyroRange
+	rangeInfo *fxas21002cGyroRange
+	Rate      core.DataRate
+	rateInfo  *fxas21002cDataRate
+}
+
 type Fxas21002c struct {
 	Bus embd.I2CBus
 	// Addr of the sensor.
@@ -80,10 +86,7 @@ type Fxas21002c struct {
 	initialized bool
 	mu          sync.RWMutex
 
-	rge      core.GyroRange
-	rgeInfo  *fxas21002cGyroRange
-	rate     core.DataRate
-	rateInfo *fxas21002cDataRate
+	conf *Configuration
 
 	readings chan *core.GyroReading
 	closing  chan chan struct{}
@@ -95,6 +98,16 @@ func New(bus embd.I2CBus) *Fxas21002c {
 		Bus:     bus,
 		address: fxas21002cAddrDefault,
 	}
+}
+
+func (d *Fxas21002c) Configure(conf *Configuration) error {
+	if conf.Rate.ID > core.DataRate12_5Hz.ID {
+		return errors.New("Lowest supported data rate is 12.5Hz")
+	}
+	conf.rangeInfo = fxas21002cGyroRanges[conf.Range]
+	conf.rateInfo = fxas21002cDataRates[conf.Rate]
+	d.conf = conf
+	return nil
 }
 
 // IsPresent returns true if it looks like we were able to see the sensor
@@ -112,18 +125,18 @@ func (d *Fxas21002c) Readings() <-chan *core.GyroReading {
 }
 
 // Start produces a stream of gyroscope readings in the Readings() channel
-func (d *Fxas21002c) Start(rge core.GyroRange, rate core.DataRate) error {
+func (d *Fxas21002c) Start() error {
 
-	if err := d.Activate(rge, rate); err != nil {
+	if err := d.Activate(); err != nil {
 		return err
 	}
 
 	// buffer is based on data rate
-	d.readings = make(chan *core.GyroReading, d.rateInfo.bufferSize)
+	d.readings = make(chan *core.GyroReading, d.conf.rateInfo.bufferSize)
 
 	go func() {
 		time.Sleep(fxas21002cActiveTransitionTime)
-		ticker := time.NewTicker(d.rate.Period)
+		ticker := time.NewTicker(d.conf.Rate.Period)
 		for {
 			select {
 			case <-ticker.C:
@@ -182,40 +195,31 @@ func (d *Fxas21002c) setup() error {
 		return fmt.Errorf("fxas21002c whoami check failed.  Expected %#x, got %#x", fxas21002cIdentifier, whoami)
 	}
 
-	// reset sensor, leave in sleep mode
-	err = d.Bus.WriteByteToReg(d.address, fxas21002cRegisterCtrl1, fxas21002cCtrlReset0)
+	// put sensor in standby mode
+	err = d.Bus.WriteByteToReg(d.address, fxas21002cRegisterCtrl1, fxas21002cCtrlStandby)
 	if err != nil {
-		return errors.New("Unable to reset fxas21002c")
+		return errors.New("Unable to put fxas21002c in standby")
 	}
 
 	return nil
 }
 
-func (d *Fxas21002c) Activate(rge core.GyroRange, rate core.DataRate) error {
-	if rate.ID > core.DataRate12_5Hz.ID {
-		return errors.New("Lowest supported data rate is 12.5Hz")
-	}
+func (d *Fxas21002c) Activate() error {
 
 	if err := d.setup(); err != nil {
 		return err
 	}
 
-	// grab configuration from tables
-	d.rate = rate
-	d.rge = rge
-	d.rgeInfo = fxas21002cGyroRanges[rge]
-	d.rateInfo = fxas21002cDataRates[rate]
-
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if err := d.Bus.WriteByteToReg(d.address, fxas21002cRegisterCtrl0, d.rgeInfo.ctrl0); err != nil {
+	if err := d.Bus.WriteByteToReg(d.address, fxas21002cRegisterCtrl0, d.conf.rangeInfo.ctrl0); err != nil {
 		return err
 	}
-	if err := d.Bus.WriteByteToReg(d.address, fxas21002cRegisterCtrl3, d.rgeInfo.ctrl3); err != nil {
+	if err := d.Bus.WriteByteToReg(d.address, fxas21002cRegisterCtrl3, d.conf.rangeInfo.ctrl3); err != nil {
 		return err
 	}
-	if err := d.Bus.WriteByteToReg(d.address, fxas21002cRegisterCtrl1, d.rateInfo.ctrl1); err != nil {
+	if err := d.Bus.WriteByteToReg(d.address, fxas21002cRegisterCtrl1, d.conf.rateInfo.ctrl1); err != nil {
 		return err
 	}
 	return nil
@@ -231,10 +235,11 @@ func (d *Fxas21002c) ReadGyro() (*core.GyroReading, error) {
 	if err != nil {
 		return nil, err
 	}
+	sensitivity := d.conf.rangeInfo.sensitivity
 	return &core.GyroReading{
-		Xdps: float64(int16(binary.BigEndian.Uint16(result[1:3]))) * d.rgeInfo.sensitivity,
-		Ydps: float64(int16(binary.BigEndian.Uint16(result[3:5]))) * d.rgeInfo.sensitivity,
-		Zdps: float64(int16(binary.BigEndian.Uint16(result[5:7]))) * d.rgeInfo.sensitivity,
+		Xdps: float64(int16(binary.BigEndian.Uint16(result[1:3]))) * sensitivity,
+		Ydps: float64(int16(binary.BigEndian.Uint16(result[3:5]))) * sensitivity,
+		Zdps: float64(int16(binary.BigEndian.Uint16(result[5:7]))) * sensitivity,
 	}, nil
 }
 
@@ -244,6 +249,9 @@ func (d *Fxas21002c) validate() error {
 	}
 	if d.address == 0x00 {
 		return fmt.Errorf("fxas21002c: invalid address %#x", d.address)
+	}
+	if d.conf == nil {
+		return errors.New("fxas21001x: not configured")
 	}
 	return nil
 }
