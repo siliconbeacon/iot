@@ -82,9 +82,9 @@ type Configuration struct {
 type Fxas21002c struct {
 	Bus embd.I2CBus
 	// Addr of the sensor.
-	address     byte
-	initialized bool
-	mu          sync.RWMutex
+	address byte
+	active  bool
+	mu      sync.RWMutex
 
 	conf *Configuration
 
@@ -126,54 +126,60 @@ func (d *Fxas21002c) Readings() <-chan *core.GyroReading {
 
 // Start produces a stream of gyroscope readings in the Readings() channel
 func (d *Fxas21002c) Start() error {
-
-	if err := d.Activate(); err != nil {
-		return err
+	if !d.active {
+		if err := d.Activate(); err != nil {
+			return err
+		}
 	}
 
-	// buffer is based on data rate
-	d.readings = make(chan *core.GyroReading, d.conf.rateInfo.bufferSize)
+	if d.readings == nil {
+		// buffer is based on data rate
+		d.readings = make(chan *core.GyroReading, d.conf.rateInfo.bufferSize)
 
-	go func() {
-		time.Sleep(fxas21002cActiveTransitionTime)
-		ticker := time.NewTicker(d.conf.Rate.Period)
-		for {
-			select {
-			case <-ticker.C:
-				var (
-					reading *core.GyroReading
-					err     error
-				)
-				reading, err = d.ReadGyro()
-				if err != nil {
-					glog.Errorf("fxas21002c: %v", err)
-					continue
+		go func() {
+			time.Sleep(fxas21002cActiveTransitionTime)
+			ticker := time.NewTicker(d.conf.Rate.Period)
+			for {
+				select {
+				case <-ticker.C:
+					var (
+						reading *core.GyroReading
+						err     error
+					)
+					reading, err = d.ReadGyro()
+					if err != nil {
+						glog.Errorf("fxas21002c: %v", err)
+						continue
+					}
+					reading.Timestamp = time.Now().UTC()
+					d.readings <- reading
+				case waitc := <-d.closing:
+					waitc <- struct{}{}
+					ticker.Stop()
+					close(d.readings)
+					d.readings = nil
+					return
 				}
-				reading.Timestamp = time.Now().UTC()
-				d.readings <- reading
-			case waitc := <-d.closing:
-				waitc <- struct{}{}
-				ticker.Stop()
-				close(d.readings)
-				return
 			}
-		}
-	}()
+		}()
+	}
 	return nil
 }
 
 // Close stops any period reads in progress.  Call this to stop the readings that
 // Start() begins
 func (d *Fxas21002c) Close() error {
-	if err := d.setup(); err != nil {
-		return err
+	if !d.active {
+		return nil
 	}
 	if d.closing != nil {
 		waitc := make(chan struct{})
 		d.closing <- waitc
 		<-waitc
 	}
-
+	if err := d.setup(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -201,6 +207,7 @@ func (d *Fxas21002c) setup() error {
 		return errors.New("Unable to put fxas21002c in standby")
 	}
 
+	d.active = false
 	return nil
 }
 
@@ -222,10 +229,14 @@ func (d *Fxas21002c) Activate() error {
 	if err := d.Bus.WriteByteToReg(d.address, fxas21002cRegisterCtrl1, d.conf.rateInfo.ctrl1); err != nil {
 		return err
 	}
+	d.active = true
 	return nil
 }
 
 func (d *Fxas21002c) ReadGyro() (*core.GyroReading, error) {
+	if !d.active {
+		return nil, errors.New("fxas21002c: sensor not active")
+	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
