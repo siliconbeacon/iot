@@ -10,6 +10,8 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/kidoman/embd"
+
+	"github.com/siliconbeacon/iot/sensors/core"
 )
 
 const (
@@ -39,14 +41,6 @@ var (
 	}
 )
 
-// TemperatureAndHumdity is a single reading of both Temperature
-// and Humdity values
-type TemperatureAndHumidity struct {
-	Timestamp                  time.Time
-	TemperatureDegreesCelsius  float64
-	RelativeHumidityPercentage float64
-}
-
 // Si70xx represents The Si70xx sensor (Si7013, Si7020, or Si7021)
 type Si70xx struct {
 	// Bus to communicate over.
@@ -57,7 +51,7 @@ type Si70xx struct {
 	initialized bool
 	mu          sync.RWMutex
 
-	readings chan *TemperatureAndHumidity
+	readings chan *core.TemperatureAndHumidityReading
 	closing  chan chan struct{}
 	serial   string
 	firmware string
@@ -165,34 +159,34 @@ func (d *Si70xx) LastTemperature() (float64, error) {
 }
 
 // Readings is a channel that will contain sensor readings after calling Start()
-func (d *Si70xx) Readings() <-chan *TemperatureAndHumidity {
+func (d *Si70xx) Readings() <-chan *core.TemperatureAndHumidityReading {
 	return d.readings
 }
 
 // Start produces a stream of humidity and temperature readings
 // in the Readings() channel
-func (d *Si70xx) Start(interval time.Duration) error {
+func (d *Si70xx) Start(rate core.DataRate) error {
 	if err := d.setup(); err != nil {
 		return err
 	}
-	if interval < 100*time.Millisecond {
-		return errors.New("Cannot sample more often than every 100 milliseconds")
+	if rate.ID < core.DataRate25Hz.ID {
+		return errors.New("Cannot sample at a higher frequency than 25Hz")
 	}
 	// determine buffer size based on frequency.
 	bufferSize := 2
-	if interval < time.Second {
-		bufferSize = int(time.Second/interval) + 1
+	if rate.Period < time.Second {
+		bufferSize = int(time.Second/rate.Period) + 1
 	}
 
-	d.readings = make(chan *TemperatureAndHumidity, bufferSize)
+	d.readings = make(chan *core.TemperatureAndHumidityReading, bufferSize)
 
 	go func() {
-		ticker := time.NewTicker(interval)
+		ticker := time.NewTicker(rate.Period)
 		for {
 			select {
 			case <-ticker.C:
 				var err error
-				reading := &TemperatureAndHumidity{}
+				reading := &core.TemperatureAndHumidityReading{}
 				if reading.RelativeHumidityPercentage, err = d.Humidity(); err != nil {
 					glog.Errorf("si70xx: %v", err)
 					continue

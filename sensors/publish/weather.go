@@ -10,6 +10,7 @@ import (
 	"github.com/kidoman/embd"
 	"github.com/siliconbeacon/iot/messages"
 	"github.com/siliconbeacon/iot/mqtt"
+	"github.com/siliconbeacon/iot/sensors/core"
 	"github.com/siliconbeacon/iot/sensors/si70xx"
 
 	MQTT "github.com/eclipse/paho.mqtt.golang"
@@ -38,21 +39,21 @@ func Weather(station string, i2cbus embd.I2CBus, mq MQTT.Client, shutdown chan b
 	}
 	fmt.Println(model, "found. Serial:", serial, "running firmware version", firmware)
 
-	// let's sample at 10Hz
-	if err = sensor.Start(100 * time.Millisecond); err != nil {
+	// let's sample at 12.5Hz
+	if err = sensor.Start(core.DataRate12_5Hz); err != nil {
 		fmt.Println("Unable to commence sensor reads from Si70xx.")
 		return
 	}
 	readings := sensor.Readings()
-	var buffer [20]*si70xx.TemperatureAndHumidity
+	var buffer [25]*core.TemperatureAndHumidityReading
 	sampleCount := 0
 	for {
 		select {
 		case reading := <-readings:
 			buffer[sampleCount] = reading
 			sampleCount++
-			if sampleCount == 20 {
-				weatherBatch(station, mq, buffer[0:20])
+			if sampleCount == 25 {
+				weatherBatch(station, mq, buffer[0:25])
 				sampleCount = 0
 			}
 		case <-shutdown:
@@ -65,7 +66,7 @@ func Weather(station string, i2cbus embd.I2CBus, mq MQTT.Client, shutdown chan b
 	}
 }
 
-func weatherBatch(station string, mq MQTT.Client, readings []*si70xx.TemperatureAndHumidity) error {
+func weatherBatch(station string, mq MQTT.Client, readings []*core.TemperatureAndHumidityReading) error {
 	var msg []byte
 	var err error
 	if msg, err = serializeWeather(station, readings); err != nil {
@@ -78,7 +79,7 @@ func weatherBatch(station string, mq MQTT.Client, readings []*si70xx.Temperature
 	return nil
 }
 
-func serializeWeather(station string, readings []*si70xx.TemperatureAndHumidity) ([]byte, error) {
+func serializeWeather(station string, readings []*core.TemperatureAndHumidityReading) ([]byte, error) {
 	baseTime := readings[0].Timestamp
 	basePTime, _ := ptypes.TimestampProto(baseTime)
 	msg := &messages.WeatherReadings{

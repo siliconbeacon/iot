@@ -10,9 +10,9 @@ import (
 	"github.com/kidoman/embd"
 	//"github.com/siliconbeacon/iot/messages"
 	//"github.com/siliconbeacon/iot/mqtt"
-	"github.com/siliconbeacon/iot/sensors/fxas21002c"
-
 	MQTT "github.com/eclipse/paho.mqtt.golang"
+	"github.com/siliconbeacon/iot/sensors/core"
+	"github.com/siliconbeacon/iot/sensors/fxas21002c"
 )
 
 func Orientation(station string, i2cbus embd.I2CBus, mq MQTT.Client, shutdown chan bool) {
@@ -23,8 +23,8 @@ func Orientation(station string, i2cbus embd.I2CBus, mq MQTT.Client, shutdown ch
 		return
 	}
 
-	gyroRange := fxas21002c.GyroRange500dps
-	gyroRate := fxas21002c.DataRate200Hz
+	gyroRange := core.GyroRange500dps
+	gyroRate := core.DataRate200Hz
 
 	fmt.Println("FXAS21002C gyroscope found.  Initializing for a range of %v dps, reading at 200Hz.", gyroRange)
 	if err := gyro.Start(gyroRange, gyroRate); err != nil {
