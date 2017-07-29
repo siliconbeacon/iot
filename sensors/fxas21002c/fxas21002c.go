@@ -41,9 +41,8 @@ const (
 )
 
 type fxas21002cDataRate struct {
-	ctrl1        byte
-	bufferSize   int
-	readInterval time.Duration
+	ctrl1      byte
+	bufferSize int
 }
 
 var (
@@ -115,17 +114,16 @@ func (d *Fxas21002c) Readings() <-chan *core.GyroReading {
 // Start produces a stream of gyroscope readings in the Readings() channel
 func (d *Fxas21002c) Start(rge core.GyroRange, rate core.DataRate) error {
 
-	go func() {
-		// we are in standby mode. Configure Sensor
-		if err := d.Activate(rge, rate); err != nil {
-			glog.Errorf("fxas21002c: %v", err)
-			return
-		}
+	if err := d.Activate(rge, rate); err != nil {
+		return err
+	}
 
-		// buffer is based on data rate
-		d.readings = make(chan *core.GyroReading, d.rateInfo.bufferSize)
+	// buffer is based on data rate
+	d.readings = make(chan *core.GyroReading, d.rateInfo.bufferSize)
+
+	go func() {
 		time.Sleep(fxas21002cActiveTransitionTime)
-		ticker := time.NewTicker(d.rateInfo.readInterval)
+		ticker := time.NewTicker(d.rate.Period)
 		for {
 			select {
 			case <-ticker.C:
@@ -139,7 +137,6 @@ func (d *Fxas21002c) Start(rge core.GyroRange, rate core.DataRate) error {
 					continue
 				}
 				reading.Timestamp = time.Now().UTC()
-
 				d.readings <- reading
 			case waitc := <-d.closing:
 				waitc <- struct{}{}
