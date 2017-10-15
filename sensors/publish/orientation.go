@@ -13,9 +13,26 @@ import (
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 	"github.com/siliconbeacon/iot/sensors/core"
 	"github.com/siliconbeacon/iot/sensors/fxas21002c"
+	"github.com/siliconbeacon/iot/sensors/fxos8700cq"
 )
 
 func Orientation(station string, i2cbus embd.I2CBus, mq MQTT.Client, shutdown chan bool) {
+	accelmag := fxos8700cq.New(i2cbus)
+
+	accelmag.Configure(&fxos8700cq.Configuration{
+		AccelerometerEnabled: true,
+		AccelerometerRange:   core.AccelRange4g,
+		MagnetometerEnabled:  true,
+		Rate:                 core.DataRate200Hz,
+	})
+
+	if present := accelmag.IsPresent(); !present {
+		fmt.Println("Unable to initialize FXOS8700CQ sensor.")
+		return
+	}
+
+	fmt.Println("FXOS8700CQ accelerometer and magnetometer found. Initialized for an acceleromter range of 4g, reading at 200Hz.  Commencing Sensor Reads.")
+
 	gyro := fxas21002c.New(i2cbus)
 
 	gyro.Configure(&fxas21002c.Configuration{

@@ -40,19 +40,18 @@ const (
 )
 
 type fxas21002cDataRate struct {
-	ctrl1      byte
-	bufferSize int
+	ctrl1 byte
 }
 
 var (
 	fxas21002cDataRates = map[core.DataRate]*fxas21002cDataRate{
-		core.DataRate800Hz:  {ctrl1: 0x02, bufferSize: 800},
-		core.DataRate400Hz:  {ctrl1: 0x06, bufferSize: 400},
-		core.DataRate200Hz:  {ctrl1: 0x0A, bufferSize: 200},
-		core.DataRate100Hz:  {ctrl1: 0x0E, bufferSize: 100},
-		core.DataRate50Hz:   {ctrl1: 0x12, bufferSize: 50},
-		core.DataRate25Hz:   {ctrl1: 0x16, bufferSize: 25},
-		core.DataRate12_5Hz: {ctrl1: 0x1A, bufferSize: 13},
+		core.DataRate800Hz:  {ctrl1: 0x02},
+		core.DataRate400Hz:  {ctrl1: 0x06},
+		core.DataRate200Hz:  {ctrl1: 0x0A},
+		core.DataRate100Hz:  {ctrl1: 0x0E},
+		core.DataRate50Hz:   {ctrl1: 0x12},
+		core.DataRate25Hz:   {ctrl1: 0x16},
+		core.DataRate12_5Hz: {ctrl1: 0x1A},
 	}
 )
 
@@ -134,7 +133,7 @@ func (d *Fxas21002c) Start() error {
 
 	if d.readings == nil {
 		// buffer is based on data rate
-		d.readings = make(chan *core.GyroReading, d.conf.rateInfo.bufferSize)
+		d.readings = make(chan *core.GyroReading, d.conf.Rate.OneSecondBuffer)
 
 		go func() {
 			time.Sleep(fxas21002cActiveTransitionTime)
@@ -240,9 +239,9 @@ func (d *Fxas21002c) ReadGyro() (*core.GyroReading, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	var result []byte
+	result := make([]byte, 7, 7)
 	var err error
-	result, err = d.Bus.ReadBytes(d.address, 7)
+	err = d.Bus.ReadFromReg(d.address, fxas21002cRegisterStatus, result)
 	if err != nil {
 		return nil, err
 	}
