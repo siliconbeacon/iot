@@ -16,26 +16,32 @@ message OrientationReading {
 	GyroscopeReading gyroscope = 2;
 	MagnetometerReading magnetometer = 3;
 	AccelerometerReading accelerometer = 4;
-	// AttitudeHeadingReference ahrs = 5;
+	AttitudeHeadingReference ahrs = 5;
 }
 
 // degrees per second
 message GyroscopeReading {
-  double x_dps = 1;
-  double y_dps = 2;
-  double z_dps = 3;
+  float x_dps = 1;
+  float y_dps = 2;
+  float z_dps = 3;
 }
 
 // micro teslas
 message MagnetometerReading {
-  double x_ut = 1; 
-  double y_ut = 2;
-  double z_ut = 3;
+  float x_ut = 1; 
+  float y_ut = 2;
+  float z_ut = 3;
 }
 
 // milli earth-gravities
 message AccelerometerReading {
-  double x_mg = 1;
-  double y_mg = 2;
-  double z_mg = 3;
+  float x_mg = 1;
+  float y_mg = 2;
+  float z_mg = 3;
+}
+
+message AttitudeHeadingReference {
+  float roll_rad  = 1;
+  float pitch_rad = 2;
+  float yaw_raw   = 3;
 }

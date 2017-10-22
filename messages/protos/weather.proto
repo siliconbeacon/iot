@@ -13,6 +13,6 @@ message WeatherReadings {
 
 message WeatherReading {
   uint32 relative_time_us = 1;
-  double temperature_degrees_c = 2;
-  double relative_humidity_percentage = 3;
+  float  temperature_degrees_c = 2;
+  float  relative_humidity_percentage = 3;
 }
