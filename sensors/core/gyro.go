@@ -19,7 +19,7 @@ const (
 // GyroReading represents 3 axis gyroscope readings in degrees per second
 type GyroReading struct {
 	Timestamp time.Time
-	Xdps      float64
-	Ydps      float64
-	Zdps      float64
+	Xdps      float32
+	Ydps      float32
+	Zdps      float32
 }

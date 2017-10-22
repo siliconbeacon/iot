@@ -57,7 +57,7 @@ const (
 
 type fxos8700cqAccelRange struct {
 	ctrlSensitivity byte
-	sensitivity     float64 // in mg per LSB
+	sensitivity     float32 // in mg per LSB
 	ctrl1           byte    // enable low noise mode or not
 }
 
@@ -407,11 +407,11 @@ func (d *Fxos8700cq) ReadAccel() (*core.AccelReading, error) {
 	return newAccel(result[1:7], d.conf.accelRangeInfo.sensitivity), nil
 }
 
-func newAccel(accelBytes []byte, sensitivity float64) *core.AccelReading {
+func newAccel(accelBytes []byte, sensitivity float32) *core.AccelReading {
 	return &core.AccelReading{
-		Xmg: float64(int16(binary.BigEndian.Uint16(accelBytes[0:2]))) * sensitivity,
-		Ymg: float64(int16(binary.BigEndian.Uint16(accelBytes[2:4]))) * sensitivity,
-		Zmg: float64(int16(binary.BigEndian.Uint16(accelBytes[4:6]))) * sensitivity,
+		Xmg: float32(int16(binary.BigEndian.Uint16(accelBytes[0:2]))) * sensitivity,
+		Ymg: float32(int16(binary.BigEndian.Uint16(accelBytes[2:4]))) * sensitivity,
+		Zmg: float32(int16(binary.BigEndian.Uint16(accelBytes[4:6]))) * sensitivity,
 	}
 }
 
@@ -434,9 +434,9 @@ func (d *Fxos8700cq) ReadMag() (*core.MagReading, error) {
 
 func newMag(magBytes []byte) *core.MagReading {
 	return &core.MagReading{
-		XuT: float64(int16(binary.BigEndian.Uint16(magBytes[0:2]))) * 0.1,
-		YuT: float64(int16(binary.BigEndian.Uint16(magBytes[2:4]))) * 0.1,
-		ZuT: float64(int16(binary.BigEndian.Uint16(magBytes[4:6]))) * 0.1,
+		XuT: float32(int16(binary.BigEndian.Uint16(magBytes[0:2]))) * 0.1,
+		YuT: float32(int16(binary.BigEndian.Uint16(magBytes[2:4]))) * 0.1,
+		ZuT: float32(int16(binary.BigEndian.Uint16(magBytes[4:6]))) * 0.1,
 	}
 }
 

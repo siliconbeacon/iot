@@ -99,7 +99,7 @@ func (d *Si70xx) ModelName() (string, error) {
 }
 
 // Humdity performs a Relative Humidity reading
-func (d *Si70xx) Humidity() (float64, error) {
+func (d *Si70xx) Humidity() (float32, error) {
 	if err := d.setup(); err != nil {
 		return -1, err
 	}
@@ -115,11 +115,11 @@ func (d *Si70xx) Humidity() (float64, error) {
 		return -1, errors.New("Error reading humidity value from sensor")
 	}
 	rawValue := binary.BigEndian.Uint16(reading[0:2])
-	return float64(rawValue)*125.0/65536.0 - 6.0, nil
+	return float32(rawValue)*125.0/65536.0 - 6.0, nil
 }
 
 // Temperature performs a Temperature reading
-func (d *Si70xx) Temperature() (float64, error) {
+func (d *Si70xx) Temperature() (float32, error) {
 	if err := d.setup(); err != nil {
 		return -1, err
 	}
@@ -140,7 +140,7 @@ func (d *Si70xx) Temperature() (float64, error) {
 
 // LastTemperature returns a temperature value that was measured during the last Humidity reading,
 // without waiting for the sensor to perform a new reading.
-func (d *Si70xx) LastTemperature() (float64, error) {
+func (d *Si70xx) LastTemperature() (float32, error) {
 	if err := d.setup(); err != nil {
 		return -1, err
 	}
@@ -223,9 +223,9 @@ func (d *Si70xx) Close() error {
 	return nil
 }
 
-func calcTemperature(reading []byte) float64 {
+func calcTemperature(reading []byte) float32 {
 	rawValue := binary.BigEndian.Uint16(reading[0:2])
-	return float64(rawValue)*175.72/65536.0 - 46.85
+	return float32(rawValue)*175.72/65536.0 - 46.85
 }
 
 func (d *Si70xx) setup() error {

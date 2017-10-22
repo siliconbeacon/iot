@@ -18,7 +18,7 @@ const (
 // 1mg = 1/1000 earth standard gravity
 type AccelReading struct {
 	Timestamp time.Time
-	Xmg       float64
-	Ymg       float64
-	Zmg       float64
+	Xmg       float32
+	Ymg       float32
+	Zmg       float32
 }

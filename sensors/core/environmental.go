@@ -8,6 +8,6 @@ import (
 // and Humdity values
 type TemperatureAndHumidityReading struct {
 	Timestamp                  time.Time
-	TemperatureDegreesCelsius  float64
-	RelativeHumidityPercentage float64
+	TemperatureDegreesCelsius  float32
+	RelativeHumidityPercentage float32
 }

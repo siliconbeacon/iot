@@ -2,15 +2,15 @@ package publish
 
 import (
 	"fmt"
-	//"time"
+	"time"
 
-	//"github.com/golang/protobuf/proto"
-	//"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 
-	"github.com/kidoman/embd"
-	//"github.com/siliconbeacon/iot/messages"
-	//"github.com/siliconbeacon/iot/mqtt"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
+	"github.com/kidoman/embd"
+	"github.com/siliconbeacon/iot/messages"
+	"github.com/siliconbeacon/iot/mqtt"
 	"github.com/siliconbeacon/iot/sensors/core"
 	"github.com/siliconbeacon/iot/sensors/fxas21002c"
 	"github.com/siliconbeacon/iot/sensors/fxos8700cq"
@@ -51,14 +51,66 @@ func Orientation(station string, i2cbus embd.I2CBus, mq MQTT.Client, shutdown ch
 		return
 	}
 
-	readings := gyro.Readings()
+	gyroReadings := gyro.Readings()
+	accelReadings := accelmag.AccelReadings()
+	magReadings := accelmag.MagReadings()
+
+	var buffer [50]*messages.OrientationReading
+	sampleCount := 0
+	baseTime := time.Now().UTC()
+
 	for {
 		select {
-		case reading := <-readings:
-			fmt.Printf("x: %v, y: %v, z: %v\n", reading.Xdps, reading.Ydps, reading.Zdps)
+		case gyroReading := <-gyroReadings:
+			magReading := <-magReadings
+			accelReading := <-accelReadings
+
+			if sampleCount == 0 {
+				baseTime = gyroReading.Timestamp
+			}
+
+			buffer[sampleCount] = &messages.OrientationReading{
+				RelativeTimeUs: uint32(gyroReading.Timestamp.Sub(baseTime) / time.Microsecond),
+				Gyroscope: &messages.GyroscopeReading{
+					XDps: gyroReading.Xdps,
+					YDps: gyroReading.Ydps,
+					ZDps: gyroReading.Zdps,
+				},
+				Magnetometer: &messages.MagnetometerReading{
+					XUt: magReading.XuT,
+					YUt: magReading.YuT,
+					ZUt: magReading.ZuT,
+				},
+				Accelerometer: &messages.AccelerometerReading{
+					XMg: accelReading.Xmg,
+					YMg: accelReading.Ymg,
+					ZMg: accelReading.Zmg,
+				},
+			}
+			sampleCount++
+			if sampleCount == 50 {
+				orientationBatch(station, mq, buffer[0:50], baseTime)
+				sampleCount = 0
+			}
 		case <-shutdown:
 			gyro.Close()
+			accelmag.Close()
 			return
 		}
 	}
+}
+
+func orientationBatch(station string, mq MQTT.Client, readings []*messages.OrientationReading, baseTime time.Time) error {
+	basePTime, _ := ptypes.TimestampProto(baseTime)
+	protobuf := &messages.OrientationReadings{
+		Device:   station,
+		BaseTime: basePTime,
+		Readings: readings,
+	}
+	msg, _ := proto.Marshal(protobuf)
+	topic := mqtt.CreateWeatherTopic(station)
+	if token := mq.Publish(topic, 0, false, msg); token.Wait() && token.Error() != nil {
+		return token.Error()
+	}
+	return nil
 }

@@ -7,8 +7,8 @@ import (
 type Reading struct {
 	Station                    string
 	Timestamp                  time.Time
-	TemperatureDegreesCelsius  float64
-	RelativeHumidityPercentage float64
+	TemperatureDegreesCelsius  float32
+	RelativeHumidityPercentage float32
 }
 
 type Readings []*Reading

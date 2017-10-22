@@ -58,7 +58,7 @@ var (
 type fxas21002cGyroRange struct {
 	ctrl0       byte
 	ctrl3       byte
-	sensitivity float64
+	sensitivity float32
 }
 
 var (
@@ -247,9 +247,9 @@ func (d *Fxas21002c) ReadGyro() (*core.GyroReading, error) {
 	}
 	sensitivity := d.conf.rangeInfo.sensitivity
 	return &core.GyroReading{
-		Xdps: float64(int16(binary.BigEndian.Uint16(result[1:3]))) * sensitivity,
-		Ydps: float64(int16(binary.BigEndian.Uint16(result[3:5]))) * sensitivity,
-		Zdps: float64(int16(binary.BigEndian.Uint16(result[5:7]))) * sensitivity,
+		Xdps: float32(int16(binary.BigEndian.Uint16(result[1:3]))) * sensitivity,
+		Ydps: float32(int16(binary.BigEndian.Uint16(result[3:5]))) * sensitivity,
+		Zdps: float32(int16(binary.BigEndian.Uint16(result[5:7]))) * sensitivity,
 	}, nil
 }
 

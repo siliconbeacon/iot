@@ -93,6 +93,5 @@ func serializeWeather(station string, readings []*core.TemperatureAndHumidityRea
 			RelativeHumidityPercentage: reading.RelativeHumidityPercentage,
 		})
 	}
-	fmt.Print("w")
 	return proto.Marshal(msg)
 }
