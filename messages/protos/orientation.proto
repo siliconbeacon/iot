@@ -43,5 +43,5 @@ message AccelerometerReading {
 message AttitudeHeadingReference {
   float roll_rad  = 1;
   float pitch_rad = 2;
-  float yaw_raw   = 3;
+  float yaw_rad   = 3;
 }
