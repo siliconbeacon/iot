@@ -54,6 +54,7 @@ func Orientation(station string, i2cbus embd.I2CBus, mq MQTT.Client, shutdown ch
 	gyroReadings := gyro.Readings()
 	accelReadings := accelmag.AccelReadings()
 	magReadings := accelmag.MagReadings()
+	ahrsSystem := core.NewMadgwickAhrs(core.DataRate200Hz)
 
 	var buffer [50]*messages.OrientationReading
 	sampleCount := 0
@@ -64,6 +65,7 @@ func Orientation(station string, i2cbus embd.I2CBus, mq MQTT.Client, shutdown ch
 		case gyroReading := <-gyroReadings:
 			magReading := <-magReadings
 			accelReading := <-accelReadings
+			ahrsReading := ahrsSystem.ComputeAhrs(gyroReading, accelReading, magReading)
 
 			if sampleCount == 0 {
 				baseTime = gyroReading.Timestamp
@@ -85,6 +87,11 @@ func Orientation(station string, i2cbus embd.I2CBus, mq MQTT.Client, shutdown ch
 					XMg: accelReading.Xmg,
 					YMg: accelReading.Ymg,
 					ZMg: accelReading.Zmg,
+				},
+				Ahrs: &messages.AttitudeHeadingReference{
+					PitchRad: ahrsReading.PitchRad,
+					YawRad:   ahrsReading.YawRad,
+					RollRad:  ahrsReading.RollRad,
 				},
 			}
 			sampleCount++
